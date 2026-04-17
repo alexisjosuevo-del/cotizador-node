@@ -12,6 +12,7 @@ const taxVal = document.getElementById('taxVal');
 const totalVal = document.getElementById('totalVal');
 const aiModal = document.getElementById('aiModal');
 const exportQuoteBtn = document.getElementById('exportQuote');
+const exportWppBtn = document.getElementById('exportWpp');
 
 // Nuevos Elementos
 const currencyToggle = document.getElementById('currencyToggle');
@@ -19,21 +20,35 @@ const clientNameInput = document.getElementById('clientName');
 const clientCompanyInput = document.getElementById('clientCompany');
 const authorNameInput = document.getElementById('authorName');
 
+// IA Mode Elements
+const btnModeManual = document.getElementById('btnModeManual');
+const btnModeAI = document.getElementById('btnModeAI');
+const modeSelectionOverlay = document.getElementById('modeSelectionOverlay');
+const bgVideo = document.getElementById('bgVideo');
+const videoSource = document.getElementById('videoSource');
+const catalogTitle = document.getElementById('catalogTitle');
+const aiPromptArea = document.getElementById('aiPromptArea');
+const aiPromptInput = document.getElementById('aiPromptInput');
+const btnGenerateAI = document.getElementById('btnGenerateAI');
+const aiThinkingStatus = document.getElementById('aiThinkingStatus');
+
 // State
 let catalogData = []; 
 let shoppingCart = []; 
 let currentCurrency = 'MXN';
-const EXCHANGE_RATE = 20.0; // Factor de conversión a USD
+const EXCHANGE_RATE = 15.0; // Factor de conversión a USD
 
 // Precargar Logo PDF
 const logoImage = new Image();
 logoImage.src = 'logo.png';
 
 // INIT
+let appMode = 'MANUAL';
 document.addEventListener('DOMContentLoaded', () => {
     aiModal.classList.remove('hidden');
     loadLocalExcel();
     setupEventListeners();
+    setupModeSelection();
 });
 
 // Auto-Load Excel File
@@ -205,10 +220,12 @@ function renderCart() {
         quoteItemsContainer.innerHTML = '<div class="empty-quote">No hay productos en la cotización</div>';
         quoteSummary.classList.add('hidden');
         exportQuoteBtn.classList.add('hidden');
+        exportWppBtn.classList.add('hidden');
         return;
     }
     
     exportQuoteBtn.classList.remove('hidden');
+    exportWppBtn.classList.remove('hidden');
     quoteSummary.classList.remove('hidden');
 
     const fragment = document.createDocumentFragment();
@@ -249,9 +266,12 @@ function renderCart() {
 
 function formatCurrency(val) {
     let finalVal = currentCurrency === 'USD' ? (val / EXCHANGE_RATE) : val;
+    finalVal = Math.ceil(finalVal);
     return new Intl.NumberFormat(currentCurrency === 'MXN' ? 'es-MX' : 'en-US', {
         style: 'currency',
-        currency: currentCurrency
+        currency: currentCurrency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
     }).format(finalVal);
 }
 
@@ -390,3 +410,145 @@ function generatePDF() {
 
     doc.save(`NODE_Cotizacion_${cName.replace(/\s+/g,'_')}.pdf`);
 }
+
+function setupModeSelection() {
+    btnModeManual.addEventListener('click', () => {
+        modeSelectionOverlay.classList.add('hidden');
+        appMode = 'MANUAL';
+    });
+
+    btnModeAI.addEventListener('click', () => {
+        modeSelectionOverlay.classList.add('hidden');
+        appMode = 'AI';
+        
+        // Cambiar a Video de AI
+        videoSource.src = 'NODE IA.mp4';
+        bgVideo.load();
+        
+        // Esconder barra manual
+        document.querySelector('.ai-search-bar').classList.add('hidden');
+        catalogTitle.innerText = "Asistente de Cotización con IA";
+        aiPromptArea.classList.remove('hidden');
+        catalogList.classList.add('hidden'); // Ocultar lista genérica
+    });
+}
+
+// Lógica de WhatsApp
+exportWppBtn.addEventListener('click', () => {
+    if(shoppingCart.length === 0) return;
+    
+    const cName = clientNameInput.value.trim() || 'No Definido';
+    const aName = authorNameInput.value.trim() || 'Sistema Automático NODE';
+    
+    let text = `*Cotización NODE*\nCliente: ${cName}\nElaborado por: ${aName}\nMoneda: ${currentCurrency}\n\n`;
+    shoppingCart.forEach(i => {
+        const itemTotal = i.price * i.qty;
+        let finalVal = currentCurrency === 'USD' ? (itemTotal / EXCHANGE_RATE) : itemTotal;
+        finalVal = Math.ceil(finalVal);
+        const priceStr = new Intl.NumberFormat(currentCurrency === 'MXN' ? 'es-MX' : 'en-US', {
+            style: 'currency', currency: currentCurrency, minimumFractionDigits: 0, maximumFractionDigits: 0
+        }).format(finalVal);
+        
+        text += `- ${i.qty}x ${i.name.substring(0, 30)}... (${priceStr})\n`;
+    });
+    
+    text += `\n*Subtotal:* ${subtotalVal.innerText}`;
+    text += `\n*IVA (16%):* ${taxVal.innerText}`;
+    text += `\n*Total:* ${totalVal.innerText}`;
+    
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+});
+
+// Lógica de API GROQ
+const GROQ_API_KEY = "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";
+
+btnGenerateAI.addEventListener('click', async () => {
+    const prompt = aiPromptInput.value.trim();
+    if(!prompt) return alert("Por favor describe lo que necesitas.");
+    
+    btnGenerateAI.disabled = true;
+    aiThinkingStatus.classList.remove('hidden');
+    catalogList.classList.add('hidden');
+    
+    // Samplear catálogo
+    const maxItems = 150; 
+    const sample = catalogData.slice(0, maxItems).map(i => `ID:${i.id} | Name:${i.name} | Price:${i.price}`).join('\n');
+    
+    const sysPrompt = `Eres un cotizador experto. A partir del catálogo de productos que recibes, crea una lista de compra recomendada según lo pedido por el usuario.
+Catálogo:
+${sample}
+
+Regla vital: Responde ESTRICTAMENTE en formato JSON plano con la siguiente estructura:
+[
+  {"id": "AQUÍ_ID_DEL_PRODUCTO", "qty": AQUÍ_CANTIDAD_NUMERICA}
+]
+Nada de explicaciones. Si no encuentras, devuelve [].`;
+
+    try {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${GROQ_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: "llama-3.1-8b-instant",
+                messages: [
+                    { role: "system", content: sysPrompt },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.1
+            })
+        });
+        
+        const data = await response.json();
+        const text = data.choices[0].message.content;
+        
+        const jsonMatch = text.match(/\[.*\]/s);
+        let products = [];
+        if (jsonMatch) {
+            products = JSON.parse(jsonMatch[0]);
+        } else {
+            products = JSON.parse(text);
+        }
+        
+        shoppingCart = [];
+        products.forEach(p => {
+             const item = catalogData.find(c => c.id === p.id);
+             if (item) {
+                 shoppingCart.push({ ...item, qty: p.qty || 1 });
+             }
+        });
+        renderCart();
+        
+        if (shoppingCart.length > 0) {
+            catalogList.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            shoppingCart.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.innerHTML = `
+                    <span class="prod-code" style="color:#00ff88; margin-bottom: 5px; display:inline-block;"><i class="ph-fill ph-check-circle"></i> Result IA</span>
+                    <div class="prod-name" style="margin-top:5px;">${item.name}</div>
+                    <div class="prod-price">${formatCurrency(item.price)}</div>
+                    <button class="add-btn" onclick="addToQuote('${item.id}')">
+                        <i class="ph ph-plus-circle"></i> Añadir extra manual
+                    </button>
+                `;
+                fragment.appendChild(card);
+            });
+            catalogList.appendChild(fragment);
+            catalogList.classList.remove('hidden');
+        } else {
+            alert("La IA procesó la solicitud pero no pudo hallar productos que coincidan completamente.");
+        }
+        
+    } catch (e) {
+        console.error(e);
+        alert("Ocurrió un error leyendo la IA. Revisa consola o intenta ser más directo indicando qué objetos en específico requieres.");
+    } finally {
+        btnGenerateAI.disabled = false;
+        aiThinkingStatus.classList.add('hidden');
+    }
+});

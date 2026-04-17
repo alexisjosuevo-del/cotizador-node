@@ -15,11 +15,23 @@
 </head>
 <body class="ai-theme">
     
+    <!-- OVERLAY SELECCION DE MODO -->
+    <div id="modeSelectionOverlay" class="mode-selection-overlay">
+        <div class="mode-card glass-panel">
+            <h2>Bienvenido al Sistema de Cotización NODE</h2>
+            <p>Selecciona tu modo de operación para continuar:</p>
+            <div class="mode-buttons">
+                <button id="btnModeManual" class="cyber-btn">Modo Manual</button>
+                <button id="btnModeAI" class="cyber-btn ai-glow"><i class="ph-fill ph-sparkle"></i> Modo Automático (IA)</button>
+            </div>
+        </div>
+    </div>
+
     <!-- HEADER CON VIDEO -->
     <header class="video-header">
-        <video autoplay muted loop playsinline class="bg-video">
+        <video autoplay muted loop playsinline class="bg-video" id="bgVideo">
             <!-- Video específico de la carpeta -->
-            <source src="Video_HD_con_Movimiento_Tipo_GIF.mp4" type="video/mp4">
+            <source src="Video_HD_con_Movimiento_Tipo_GIF.mp4" type="video/mp4" id="videoSource">
         </video>
         <div class="video-overlay"></div>
         <div class="header-content">
@@ -54,7 +66,17 @@
                 
                 <!-- CATÁLOGO -->
                 <div class="catalog-area">
-                    <h3>Catálogo Disponible</h3>
+                    <h3 id="catalogTitle">Catálogo Disponible</h3>
+                    
+                    <!-- AI MODE INPUT -->
+                    <div id="aiPromptArea" class="ai-prompt-area hidden">
+                        <textarea id="aiPromptInput" class="cyber-input" placeholder="Describe lo que necesitas cotizar. Ejemplo: 'Necesito armar una sala de juntas elegante con 8 sillas y mesa con presupuesto moderado'" rows="4"></textarea>
+                        <button id="btnGenerateAI" class="cyber-btn full-width mt-4"><i class="ph ph-magic-wand"></i> Generar Cotización con IA</button>
+                        <div id="aiThinkingStatus" class="ai-analysis-indicator hidden" style="margin-top:15px; justify-content:center;">
+                            <div class="spinner"></div> IA estructurando cotización automáticamente...
+                        </div>
+                    </div>
+
                     <div class="ai-analysis-indicator hidden" id="aiIndicator">
                         <div class="spinner"></div> Analizando intención de búsqueda...
                     </div>
@@ -85,7 +107,10 @@
 
                     <div class="quote-header">
                         <h3><i class="ph ph-calculator"></i> Cotización Actual</h3>
-                        <button id="exportQuote" class="cyber-btn sm hidden">Exportar a PDF</button>
+                        <div style="display:flex; gap:10px;">
+                            <button id="exportQuote" class="cyber-btn sm hidden">Exportar PDF</button>
+                            <button id="exportWpp" class="cyber-btn sm hidden" style="background:rgba(37,211,102,0.2); border-color:#25D366; color:#25D366;"><i class="ph ph-whatsapp-logo"></i> Enviar WPP</button>
+                        </div>
                     </div>
                     
                     <div class="quote-items" id="quoteItems">
