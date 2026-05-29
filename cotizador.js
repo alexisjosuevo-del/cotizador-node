@@ -460,9 +460,7 @@ exportWppBtn.addEventListener('click', () => {
     window.open(url, '_blank');
 });
 
-// Lógica de API GROQ
-const GROQ_API_KEY = "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";
-
+// Lógica de API
 btnGenerateAI.addEventListener('click', async () => {
     const prompt = aiPromptInput.value.trim();
     if(!prompt) return alert("Por favor describe lo que necesitas.");
@@ -475,32 +473,22 @@ btnGenerateAI.addEventListener('click', async () => {
     const maxItems = 150; 
     const sample = catalogData.slice(0, maxItems).map(i => `ID:${i.id} | Name:${i.name} | Price:${i.price}`).join('\n');
     
-    const sysPrompt = `Eres un cotizador experto. A partir del catálogo de productos que recibes, crea una lista de compra recomendada según lo pedido por el usuario.
-Catálogo:
-${sample}
-
-Regla vital: Responde ESTRICTAMENTE en formato JSON plano con la siguiente estructura:
-[
-  {"id": "AQUÍ_ID_DEL_PRODUCTO", "qty": AQUÍ_CANTIDAD_NUMERICA}
-]
-Nada de explicaciones. Si no encuentras, devuelve [].`;
-
     try {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        const response = await fetch("/api/generateQuote", {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${GROQ_API_KEY}`,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                model: "llama-3.1-8b-instant",
-                messages: [
-                    { role: "system", content: sysPrompt },
-                    { role: "user", content: prompt }
-                ],
-                temperature: 0.1
+                prompt: prompt,
+                catalogSample: sample
             })
         });
+        
+        if (!response.ok) {
+            const errData = await response.json();
+            throw new Error(errData.error || "Error en el servidor");
+        }
         
         const data = await response.json();
         const text = data.choices[0].message.content;
