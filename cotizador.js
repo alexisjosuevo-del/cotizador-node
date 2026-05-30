@@ -138,7 +138,7 @@ function renderCatalog(items) {
         const card = document.createElement('div');
         card.className = 'product-card';
         card.innerHTML = `
-            <span class="prod-code">${item.id}</span>
+            
             <div class="prod-name">${item.name}</div>
             <div class="prod-price">${formatCurrency(item.price)}</div>
             <button class="add-btn" onclick="addToQuote('${item.id}')">
@@ -314,101 +314,317 @@ function setupEventListeners() {
     });
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// generatePDF — NODE Soluciones Tecnológicas · Identity v2.0
+// ═══════════════════════════════════════════════════════════════════════
 function generatePDF() {
-    if(!window.jspdf) {
-        alert("El motor PDF está cargando, revisa tu conexión.");
+    if (!window.jspdf) {
+        alert("El motor PDF está cargando. Verifica tu conexión e intenta de nuevo.");
         return;
     }
 
-    const cName = clientNameInput.value.trim() || 'Cliente No Registrado';
-    const cCompany = clientCompanyInput.value.trim() || '';
-    const aName = authorNameInput.value.trim() || 'Sistema Automático NODE';
-    
+    // ── Datos del formulario ─────────────────────────────────────────────
+    const cName    = clientNameInput.value.trim()    || "Cliente No Registrado";
+    const cCompany = clientCompanyInput.value.trim() || "";
+    const aName    = authorNameInput.value.trim()    || "NODE Soluciones Tecnológicas";
+
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // Insertar Logo Real
-    let currentY = 15;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+    // ── Paleta NODE Identity v2.0 ────────────────────────────────────────
+    const COLOR = {
+        ink:        [30, 45, 64],
+        indigo:     [67, 56, 202],
+        teal:       [13, 148, 136],
+        midnight:   [13, 18, 37],
+        white:      [255, 255, 255],
+        neutral50:  [248, 249, 251],
+        neutral100: [241, 243, 247],
+        neutral200: [228, 232, 240],
+        neutral400: [148, 163, 184],
+        neutral500: [100, 116, 139],
+        neutral600: [71, 85, 105],
+        indigoLight:[238, 242, 255],
+        indigoMid:  [199, 210, 254],
+    };
+
+    const PAGE_W  = doc.internal.pageSize.getWidth();
+    const PAGE_H  = doc.internal.pageSize.getHeight();
+    const MARGIN  = 40;
+    const CONTENT = PAGE_W - MARGIN * 2;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 1.  HEADER BAND — NODE MEDIANOCHE
+    // ═══════════════════════════════════════════════════════════════════
+    const HEADER_H = 82;
+    doc.setFillColor(...COLOR.midnight);
+    doc.rect(0, 0, PAGE_W, HEADER_H, "F");
+
     if (logoImage.complete && logoImage.naturalHeight > 0) {
-        const imgWidth = 40; // Ancho máximo
-        const imgHeight = (logoImage.naturalHeight / logoImage.naturalWidth) * imgWidth;
-        doc.addImage(logoImage, 'PNG', 14, currentY, imgWidth, imgHeight);
+        const logoW = 52;
+        const logoH = (logoImage.naturalHeight / logoImage.naturalWidth) * logoW;
+        doc.addImage(logoImage, "PNG", MARGIN, (HEADER_H - logoH) / 2, logoW, logoH);
     } else {
-        // Fallback en caso de que logo.png no se pueda cargar
-        doc.setFontSize(26);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(30, 35, 45);
-        doc.text("NODE", 14, 25);
+        doc.setFontSize(22);
+        doc.setTextColor(...COLOR.white);
+        doc.text("NODE", MARGIN, HEADER_H / 2 + 8);
     }
 
-    doc.setFontSize(14);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(150, 150, 150);
-    // Alineado a la derecha
-    doc.text("COTIZACIÓN OFICIAL", 140, 21);
-    
-    // Línea separadora
+    doc.setFontSize(7.5);
+    doc.setTextColor(...COLOR.neutral400);
+    doc.text("SOLUCIONES TECNOLÓGICAS", MARGIN, HEADER_H - 14);
+
+    const folio = `CTZ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...COLOR.neutral400);
+    doc.text("COTIZACIÓN", PAGE_W - MARGIN, 26, { align: "right" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(...COLOR.white);
+    doc.text(folio, PAGE_W - MARGIN, 46, { align: "right" });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...COLOR.neutral500);
+    const dateStr = new Date().toLocaleDateString("es-MX", { year: "numeric", month: "long", day: "numeric" });
+    doc.text(dateStr, PAGE_W - MARGIN, 62, { align: "right" });
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 2.  ACCENT BAR — índigo → teal
+    // ═══════════════════════════════════════════════════════════════════
+    const BAR_H = 4;
+    const BAR_Y = HEADER_H;
+    doc.setFillColor(...COLOR.indigo);
+    doc.rect(0, BAR_Y, PAGE_W / 2, BAR_H, "F");
+    doc.setFillColor(...COLOR.teal);
+    doc.rect(PAGE_W / 2, BAR_Y, PAGE_W / 2, BAR_H, "F");
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 3.  BLOQUE DE INFORMACIÓN DOBLE COLUMNA
+    // ═══════════════════════════════════════════════════════════════════
+    let Y = HEADER_H + BAR_H + 24;
+    const COL_W = CONTENT / 2 - 12;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR.neutral400);
+    doc.text("PARA", MARGIN, Y);
+
+    Y += 12;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...COLOR.ink);
+    doc.text(cName, MARGIN, Y);
+
+    if (cCompany) {
+        Y += 14;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(...COLOR.neutral600);
+        doc.text(cCompany, MARGIN, Y);
+    }
+
+    const RX = MARGIN + COL_W + 24;
+    let RY = HEADER_H + BAR_H + 24;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(...COLOR.neutral400);
+    doc.text("ELABORADO POR", RX, RY);
+
+    RY += 12;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...COLOR.ink);
+    doc.text(aName, RX, RY);
+
+    RY += 14;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...COLOR.neutral600);
+    doc.text("hola@nodeq.com.mx", RX, RY);
+
+    RY += 18;
+    const BADGE_W = 140;
+    const BADGE_H = 18;
+    doc.setFillColor(...COLOR.indigoLight);
+    doc.roundedRect(RX, RY, BADGE_W, BADGE_H, 4, 4, "F");
+    doc.setDrawColor(...COLOR.indigoMid);
     doc.setLineWidth(0.5);
-    doc.setDrawColor(200, 200, 200);
-    // Ajustar si el logo es muy alto
-    const lineY = logoImage.complete && logoImage.naturalHeight > 0 
-                  ? 18 + ((logoImage.naturalHeight / logoImage.naturalWidth) * 40)
-                  : 32;
-                  
-    doc.line(14, lineY, 196, lineY);
-    
-    // Header Info
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, lineY + 7);
-    doc.text(`Doc ID: NODE-CTZ-${Math.floor(Math.random()*10000)}`, 14, lineY + 12);
-    
-    // Client Info
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
-    doc.text(`Para: ${cName}`, 14, lineY + 20);
-    if(cCompany) doc.text(`Empresa: ${cCompany}`, 14, lineY + 25);
-    doc.text(`Elaborado por: ${aName}`, 14, cCompany ? lineY + 30 : lineY + 25);
-    doc.text(`Moneda Emitida: ${currentCurrency}`, 140, lineY + 20);
-    
-    const tableColumn = ["ID", "Producto", "Cant", "P.Unitario", "Total"];
-    const tableRows = [];
+    doc.roundedRect(RX, RY, BADGE_W, BADGE_H, 4, 4, "S");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...COLOR.indigo);
+    doc.text("Válida 15 días naturales", RX + BADGE_W / 2, RY + 11.5, { align: "center" });
 
-    shoppingCart.forEach(item => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...COLOR.neutral400);
+    doc.text(`Moneda: ${currentCurrency}`, PAGE_W - MARGIN, RY + 11.5, { align: "right" });
+
+    Y = Math.max(Y + (cCompany ? 14 : 0), RY + BADGE_H) + 20;
+    doc.setDrawColor(...COLOR.neutral200);
+    doc.setLineWidth(0.5);
+    doc.line(MARGIN, Y, PAGE_W - MARGIN, Y);
+    Y += 16;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 4.  TABLA DE PRODUCTOS
+    // ═══════════════════════════════════════════════════════════════════
+    const tableRows = shoppingCart.map(item => {
         const itemTotal = item.price * item.qty;
-        tableRows.push([
+        return [
             item.id,
-            item.name.substring(0, 40),
-            item.qty.toString(),
+            item.name.length > 48 ? item.name.substring(0, 47) + "…" : item.name,
             formatCurrency(item.price),
-            formatCurrency(itemTotal)
-        ]);
+            String(item.qty),
+            formatCurrency(itemTotal),
+        ];
     });
-
-    // Ajuste de altura dinámica
-    const startY = cCompany ? lineY + 40 : lineY + 35;
 
     doc.autoTable({
-        head: [tableColumn],
+        head: [["ID", "Producto / Servicio", "P. Unitario", "Cant.", "Total"]],
         body: tableRows,
-        startY: startY,
-        theme: 'grid',
-        headStyles: { fillColor: [5, 7, 10], textColor: [0, 243, 255] },
-        styles: { fontSize: 9 }
+        startY: Y,
+        margin: { left: MARGIN, right: MARGIN },
+        theme: "plain",
+        styles: {
+            font:       "helvetica",
+            fontSize:   9,
+            cellPadding: { top: 9, bottom: 9, left: 10, right: 10 },
+            textColor:  COLOR.neutral600,
+            lineColor:  COLOR.neutral100,
+            lineWidth:  0.4,
+        },
+        headStyles: {
+            fillColor:    COLOR.neutral50,
+            textColor:    COLOR.neutral500,
+            fontSize:     7.5,
+            fontStyle:    "bold",
+            halign:       "left",
+            cellPadding:  { top: 8, bottom: 8, left: 10, right: 10 },
+            lineColor:    COLOR.neutral200,
+            lineWidth:    { bottom: 0.8 },
+        },
+        alternateRowStyles: {
+            fillColor: [250, 250, 252],
+        },
+        columnStyles: {
+            0: { cellWidth: 52,  textColor: COLOR.indigo,  fontStyle: "bold", fontSize: 8 },
+            1: { cellWidth: "auto", textColor: COLOR.ink,  fontStyle: "normal" },
+            2: { cellWidth: 80,  halign: "right" },
+            3: { cellWidth: 44,  halign: "center", fontStyle: "bold", textColor: COLOR.ink },
+            4: { cellWidth: 80,  halign: "right",  fontStyle: "bold", textColor: COLOR.ink },
+        },
+        didDrawCell(data) {
+            if (data.section === "body" && data.column.index === 0) {
+                const { x, y, width, height } = data.cell;
+                // Tapar el texto original con el fondo
+                doc.setFillColor(...COLOR.neutral50);
+                doc.rect(x, y, width, height, "F");
+                // Dibujar badge encima
+                doc.setFillColor(...COLOR.indigoLight);
+                doc.roundedRect(x + 4, y + (height - 12) / 2, width - 8, 12, 2, 2, "F");
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(7.5);
+                doc.setTextColor(...COLOR.indigo);
+                doc.text(
+                    String(data.cell.raw),
+                    x + width / 2,
+                    y + height / 2 + 1,
+                    { align: "center", baseline: "middle" }
+                );
+            }
+        },
     });
 
-    const finalY = doc.lastAutoTable.finalY || startY;
-    
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Subtotal: ${subtotalVal.innerText}`, 140, finalY + 10);
-    doc.text(`IVA (16%): ${taxVal.innerText}`, 140, finalY + 16);
-    
-    doc.setFontSize(13);
-    doc.setTextColor(157, 78, 221);
-    doc.text(`TOTAL: ${totalVal.innerText} ${currentCurrency}`, 140, finalY + 24);
+    // ═══════════════════════════════════════════════════════════════════
+    // 5.  BLOQUE DE TOTALES
+    // ═══════════════════════════════════════════════════════════════════
+    const TABLE_BOTTOM = doc.lastAutoTable.finalY || Y + 40;
+    const TOTALS_X     = PAGE_W - MARGIN - 200;
+    let TY             = TABLE_BOTTOM + 16;
 
-    doc.save(`NODE_Cotizacion_${cName.replace(/\s+/g,'_')}.pdf`);
+    const drawTotalRow = (label, value, opts = {}) => {
+        const { bold = false, big = false, accent = false, topLine = false } = opts;
+        if (topLine) {
+            doc.setDrawColor(...COLOR.neutral200);
+            doc.setLineWidth(1);
+            doc.line(TOTALS_X, TY - 4, PAGE_W - MARGIN, TY - 4);
+        }
+        doc.setFont("helvetica", bold ? "bold" : "normal");
+        doc.setFontSize(big ? 12 : 9);
+        doc.setTextColor(...(accent ? COLOR.indigo : (bold ? COLOR.ink : COLOR.neutral600)));
+        doc.text(label, TOTALS_X, TY);
+        doc.text(value, PAGE_W - MARGIN, TY, { align: "right" });
+        TY += big ? 20 : 16;
+    };
+
+    const subtotal = shoppingCart.reduce((s, i) => s + i.price * i.qty, 0);
+    const tax      = subtotal * 0.16;
+    const total    = subtotal + tax;
+
+    drawTotalRow("Subtotal", formatCurrency(subtotal));
+    drawTotalRow("IVA (16%)", formatCurrency(tax));
+    drawTotalRow(
+        `TOTAL ${currentCurrency}`,
+        formatCurrency(total),
+        { bold: true, big: true, accent: true, topLine: true }
+    );
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 6.  NOTAS DE CONDICIONES
+    // ═══════════════════════════════════════════════════════════════════
+    TY += 10;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...COLOR.neutral400);
+    doc.text(
+        "Anticipo del 50% al firmar contrato · Saldo contra entrega · Precios expresados sin IVA",
+        MARGIN, TY
+    );
+    TY += 11;
+    doc.text(
+        "Esta cotización no constituye un compromiso de venta hasta recibir anticipo y contrato firmado.",
+        MARGIN, TY
+    );
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 7.  FOOTER BAND — NODE MEDIANOCHE
+    // ═══════════════════════════════════════════════════════════════════
+    const FOOTER_H = 38;
+    const FOOTER_Y = PAGE_H - FOOTER_H;
+
+    doc.setFillColor(...COLOR.midnight);
+    doc.rect(0, FOOTER_Y, PAGE_W, FOOTER_H, "F");
+
+    doc.setFillColor(...COLOR.indigo);
+    doc.circle(MARGIN + 5, FOOTER_Y + FOOTER_H / 2, 3, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...COLOR.white);
+    doc.text("NODE.MX", MARGIN + 14, FOOTER_Y + FOOTER_H / 2 + 3);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...COLOR.neutral500);
+    doc.text("hola@nodeq.com.mx  ·  node.mx", MARGIN + 14, FOOTER_Y + FOOTER_H / 2 + 14);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...COLOR.neutral500);
+    doc.text(`Folio: ${folio}`, PAGE_W - MARGIN, FOOTER_Y + FOOTER_H / 2 + 3, { align: "right" });
+
+    // ═══════════════════════════════════════════════════════════════════
+    // 8.  GUARDAR
+    // ═══════════════════════════════════════════════════════════════════
+    const filename = `NODE_Cotizacion_${cName.replace(/\s+/g, "_")}_${folio}.pdf`;
+    doc.save(filename);
 }
 
 function setupModeSelection() {
@@ -460,7 +676,9 @@ exportWppBtn.addEventListener('click', () => {
     window.open(url, '_blank');
 });
 
-// Lógica de API
+// Lógica de API GROQ
+const GROQ_API_KEY = "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";
+
 btnGenerateAI.addEventListener('click', async () => {
     const prompt = aiPromptInput.value.trim();
     if(!prompt) return alert("Por favor describe lo que necesitas.");
@@ -473,22 +691,32 @@ btnGenerateAI.addEventListener('click', async () => {
     const maxItems = 150; 
     const sample = catalogData.slice(0, maxItems).map(i => `ID:${i.id} | Name:${i.name} | Price:${i.price}`).join('\n');
     
+    const sysPrompt = `Eres un cotizador experto. A partir del catálogo de productos que recibes, crea una lista de compra recomendada según lo pedido por el usuario.
+Catálogo:
+${sample}
+
+Regla vital: Responde ESTRICTAMENTE en formato JSON plano con la siguiente estructura:
+[
+  {"id": "AQUÍ_ID_DEL_PRODUCTO", "qty": AQUÍ_CANTIDAD_NUMERICA}
+]
+Nada de explicaciones. Si no encuentras, devuelve [].`;
+
     try {
-        const response = await fetch("/api/generateQuote", {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: {
+                "Authorization": `Bearer ${GROQ_API_KEY}`,
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                prompt: prompt,
-                catalogSample: sample
+                model: "llama-3.1-8b-instant",
+                messages: [
+                    { role: "system", content: sysPrompt },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.1
             })
         });
-        
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || "Error en el servidor");
-        }
         
         const data = await response.json();
         const text = data.choices[0].message.content;
@@ -517,7 +745,7 @@ btnGenerateAI.addEventListener('click', async () => {
                 const card = document.createElement('div');
                 card.className = 'product-card';
                 card.innerHTML = `
-                    <span class="prod-code" style="color:#00ff88; margin-bottom: 5px; display:inline-block;"><i class="ph-fill ph-check-circle"></i> Result IA</span>
+                    
                     <div class="prod-name" style="margin-top:5px;">${item.name}</div>
                     <div class="prod-price">${formatCurrency(item.price)}</div>
                     <button class="add-btn" onclick="addToQuote('${item.id}')">
